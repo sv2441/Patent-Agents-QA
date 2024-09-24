@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import time
 import json
+import tempfile
 import shutil  
 from io import StringIO
 from dotenv import load_dotenv
@@ -24,7 +25,24 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 # Load environment variables
 load_dotenv()
 
+HUGGING_FACE_API =st.secrets["HUGGING_FACE_API"]
+OPENAI_API_KEY= st.secrets["OPENAI_API_KEY"]
+GROQ_API_KEY= st.secrets["GROQ_API_KEY"]
+GOOGLE_API_KEY= st.secrets["GOOGLE_API_KEY"]
 
+
+# Create a temporary directory for the embeddings
+def create_temp_embeddings_dir():
+    temp_dir = tempfile.TemporaryDirectory()  # Automatically cleaned up later
+    return temp_dir.name
+
+# Function to clean up after each run
+def cleanup_temp_dir(temp_dir):
+    if os.path.exists(temp_dir):
+        try:
+            shutil.rmtree(temp_dir)  # This will delete the directory and all its contents
+        except Exception as e:
+            st.error(f"Error deleting temp directory {temp_dir}: {e}")
 # Function to process URL and query
 def process_url_and_query(name, url, query, selected_llm, temperature, k_value):
     # Load data from the specified URL
@@ -35,17 +53,14 @@ def process_url_and_query(name, url, query, selected_llm, temperature, k_value):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=40)
     docs = text_splitter.split_documents(data)
 
+    temp_dir = create_temp_embeddings_dir()
     # Create embeddings using HuggingFaceEmbeddings
     embedding_function = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-    # Create a directory for embeddings
-    db_path = f"./db_embeddings/{name.replace(' ', '_')}"
-    if not os.path.exists(db_path):
-        os.makedirs(db_path)
 
     # Create a Chroma vector database
     vectordb = Chroma.from_documents(
-        documents=docs, embedding=embedding_function, persist_directory=db_path
+        documents=docs, embedding=embedding_function, persist_directory=temp_dir
     )
     vectordb.persist()
 
@@ -197,12 +212,6 @@ if st.button("Start Processing"):
                     progress_bar.progress(current_iteration / total_iterations)
 
                     # Delete embeddings for the URL
-                    db_path = f"./db_embeddings/{name.replace(' ', '_')}"
-                    if os.path.exists(db_path):
-                        try:
-                            shutil.rmtree(db_path)  # This will delete the directory and all its contents
-                        except Exception as e:
-                            st.error(f"Error deleting embeddings: {e}")
 
             # Convert output data to DataFrame and display
             output_df = pd.DataFrame(output_data)
