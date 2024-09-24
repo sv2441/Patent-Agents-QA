@@ -1,0 +1,10 @@
+streamlit
+pandas
+python-dotenv
+langchain
+langchain-openai
+chromadb
+langchain-chroma==0.1.2
+langchain-google-genai
+langchain-groq
+langchain-huggingface
